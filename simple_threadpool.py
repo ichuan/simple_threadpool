@@ -6,50 +6,64 @@
 A Simple Threadpool
 '''
 
-from Queue import Queue, Empty
+import multiprocessing
 from threading import Thread
+
+try:
+    from Queue import Queue
+except ModuleNotFoundError:
+    from queue import Queue
 
 
 __all__ = ['ThreadPool']
 
 
 class ThreadPool(object):
-  '''
-  A Simple Threadpool
-  '''
-  def __init__(self, size, worker):
-    self.queue = Queue()
-    self.closed = False
-    for i in range(size):
-      j = Thread(target=self.worker, args=(worker,))
-      #j.daemon = True
-      j.start()
+    '''
+    A Simple Threadpool
+    '''
 
-  def worker(self, worker):
-    '''
-    worker
-    '''
-    while True:
-      try:
-        if self.closed:
-          return
-        worker(self.queue.get(timeout=1))
-      except Empty:
-        continue
-      except:
-        self.queue.task_done()
-        raise
-      self.queue.task_done()
+    def __init__(self, worker, max_workers=None, chunksize=None, result_callback=None):
+        if max_workers is None:
+            # as concurrent.futures.ThreadPoolExecutor
+            max_workers = min(32, multiprocessing.cpu_count() + 4)
+        if chunksize is None:
+            chunksize = max_workers * 2
+        self.max_workers = max_workers
+        self.result_callback = result_callback or (lambda i: i)
+        self.queue = Queue(chunksize)
+        self.close_signal = object()
+        for i in range(max_workers):
+            j = Thread(target=self.worker, args=(worker,))
+            j.daemon = True
+            j.start()
 
-  def feed(self, items):
-    '''
-    feeds till done
-    '''
-    map(self.queue.put, iter(items))
-    self.queue.join()
+    def worker(self, worker):
+        '''
+        worker
+        '''
+        while True:
+            try:
+                job = self.queue.get()
+                if job is self.close_signal:
+                    return
+                self.result_callback(worker(job))
+            finally:
+                self.queue.task_done()
 
-  def close(self):
-    '''
-    explicit close queue
-    '''
-    self.closed = True
+    def feed(self, items, wait=True):
+        '''
+        feeds till done
+        '''
+        for i in items:
+            self.queue.put(i)
+        if wait:
+            self.queue.join()
+
+    def close(self):
+        '''
+        explicit close queue
+        '''
+        for i in range(self.max_workers):
+            self.queue.put(self.close_signal)
+        self.queue.join()
