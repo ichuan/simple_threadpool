@@ -7,7 +7,7 @@ A Simple Threadpool
 '''
 
 import multiprocessing
-from threading import Thread
+from threading import Thread, Lock
 
 try:
     from Queue import Queue
@@ -30,7 +30,8 @@ class ThreadPool(object):
         if chunksize is None:
             chunksize = max_workers * 2
         self.max_workers = max_workers
-        self.result_callback = result_callback or (lambda i: i)
+        self.result_callback = result_callback
+        self.callback_lock = Lock()
         self.queue = Queue(chunksize)
         self.close_signal = object()
         for i in range(max_workers):
@@ -47,7 +48,11 @@ class ThreadPool(object):
                 job = self.queue.get()
                 if job is self.close_signal:
                     return
-                self.result_callback(worker(job))
+                if self.result_callback:
+                    with self.callback_lock:
+                        self.result_callback(worker(job))
+                else:
+                    worker(job)
             finally:
                 self.queue.task_done()
 

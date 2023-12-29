@@ -18,7 +18,7 @@ URL = 'https://github.com/ichuan/simple_threadpool'
 EMAIL = ''
 AUTHOR = 'yc'
 REQUIRES_PYTHON = '>=2.6.0'
-VERSION = '1.0.0'
+VERSION = '1.0.1'
 
 # What packages are required for this module to be executed?
 REQUIRED = []

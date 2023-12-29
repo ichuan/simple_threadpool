@@ -1,5 +1,5 @@
-# Intro
-simple\_threadpool: a simple threadpool
+# simple\_threadpool
+A simple threadpool, supports large iterable job queue(add on demand, compared to `concurrent.futures.ThreadPoolExecutor` and `multiprocessing.pool.ThreadPool`).
 
 
 # Install
@@ -32,6 +32,10 @@ def large_iterable(size):
         yield i
 
 
+def callback(result):
+    print(result)
+
+
 # create a ThreadPool instance with 2 threads
 tp = ThreadPool(my_worker, max_workers=2)
 print('max_workers: %d' % tp.max_workers)
@@ -46,7 +50,11 @@ tp.feed([6, 7, 8, 9, 0])
 
 print('Large jobs:')
 tp.feed(large_iterable(15))
-
 # close the queue
+tp.close()
+
+print('Using callback (callback function will be threadsafe)')
+tp = ThreadPool(my_worker, result_callback=callback)
+tp.feed([1, 2, 3])
 tp.close()
 ```
